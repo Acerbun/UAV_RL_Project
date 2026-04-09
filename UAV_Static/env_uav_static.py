@@ -22,12 +22,13 @@ class UAV_Emergency_Env(gym.Env):
         # 2. 空间定义
         # 动作空间：选一个用户减功率，选另一个加功率。共 K*(K-1) 种动作
         self.action_space = spaces.Discrete(self.K * (self.K - 1))
-        # 状态空间：K个当前功率 + K个上一时刻速率
-        self.observation_space = spaces.Box(low=0, high=np.inf, shape=(2 * self.K,), dtype=np.float32)
+        
+        # 【修改】状态空间：K个当前功率 + K个上一时刻速率 + K个短板用户的One-hot编码
+        self.observation_space = spaces.Box(low=0, high=np.inf, shape=(3 * self.K,), dtype=np.float32)
 
         # 3. 兼容原作者 DQN Agent 的自定义维度属性        
         self.n_actions = self.K * (self.K - 1)       
-        self.n_state_dims = 2 * self.K
+        self.n_state_dims = 3 * self.K # 【修改】从 2*K 变为 3*K
 
         self.user_positions = None
         self.uav_pos = np.array([250.0, 250.0]) # 假设无人机在 500x500 区域的中心悬停
@@ -43,7 +44,10 @@ class UAV_Emergency_Env(gym.Env):
         # 初始速率设为 0
         self.last_rates = np.zeros(self.K)
         
-        return np.concatenate((self.current_power, self.last_rates))
+        # 【新增】初始短板状态为全 0
+        bottleneck_onehot = np.zeros(self.K)
+        
+        return np.concatenate((self.current_power, self.last_rates, bottleneck_onehot))
 
     def step(self, action):
         self.current_step += 1
@@ -82,13 +86,25 @@ class UAV_Emergency_Env(gym.Env):
         self.last_rates = rates
 
         # ---------------- 4. 计算奖励 (Q-Min的核心点) ----------------
-        # 我们不求和，而是取所有用户中最差的速率作为奖励
-        reward = float(np.min(rates))
+        # 【修改】使用平滑最小值与平均值的混合奖励
+        min_rate = np.min(rates)
+        mean_rate = np.mean(rates)
+        beta = 5.0 # 平滑系数，可调
+        
+        # 防止数值溢出的安全 LogSumExp 计算
+        smooth_min = min_rate - (1.0 / beta) * np.log(np.sum(np.exp(-beta * (rates - min_rate))))
+        
+        # 奖励融合：80% 关注短板(带平滑)，20% 关注整体性能，提供稠密梯度
+        reward = float(0.8 * smooth_min + 0.2 * mean_rate)
 
         # ---------------- 5. 状态更新与终止判断 ----------------
-        next_state = np.concatenate((self.current_power, self.last_rates))
+        # 【新增】找出当前速率最低的用户，制成 One-hot 向量
+        bottleneck_idx = np.argmin(rates)
+        bottleneck_onehot = np.zeros(self.K)
+        bottleneck_onehot[bottleneck_idx] = 1.0
+
+        # 【修改】拼接短板信息的 One-hot 向量
+        next_state = np.concatenate((self.current_power, self.last_rates, bottleneck_onehot))
         done = bool(self.current_step >= self.max_steps)
 
-        # 返回符合 Gym 接口标准的数据
-        # return next_state, reward, done, {}
         return next_state, reward, done

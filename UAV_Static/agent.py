@@ -127,6 +127,7 @@ class Modified_DDQN_Agent(Agent):
 
     # modified Bellman update for min-reward optimization
     def _compute_Q_targets(self, rewards, next_Qs, episode_dones):        
-        targets = np.minimum(rewards, REWARD_DISCOUNT * next_Qs * (1-episode_dones.astype(float)))
+        #targets = np.minimum(rewards, REWARD_DISCOUNT * next_Qs * (1-episode_dones.astype(float)))
+        targets = np.minimum(rewards, next_Qs * (1-episode_dones.astype(float)))
         targets = targets + np.maximum(rewards*episode_dones.astype(float), 0)
         return targets
