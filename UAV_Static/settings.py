@@ -5,38 +5,36 @@ import random
 # For windows specific error
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-# Options: CartPole, Breakout
-ENVIRONMENT_NAME = "Breakout"
-# Options: Prioritized, Uniform
-MEMORY_TYPE = "Prioritized"
+# ----------------- 修改1：环境名称 -----------------
+ENVIRONMENT_NAME = "UAV_Static"
+
+# ----------------- 修改2：经验池与设备 -----------------
+# 简单的向量环境用 Uniform (均匀采样) 就足够了，计算速度更快
+MEMORY_TYPE = "Uniform" 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Parameters for training and replay buffer
-HISTORY_LENGTH = 4
-FRAME_SKIP = 4 # For space invaders, taking max of last two frames should be not worse than k=3 in DQN paper
-TRAIN_FREQUENCY = 4
-if ENVIRONMENT_NAME == "Breakout":
-    REWARD_DISCOUNT = 0.95
-    INITIAL_EXPLORE_STEPS = int(1e4)
-    TRAIN_STEPS = int(2e6)
-    TARGET_NET_SYNC_FREQUENCY = int(1e4)
-    EVALUATION_FREQUENCY = int(5e4)
-    EVALUATION_TRIALS = 25
-    EVALUATION_TRIALS_TEST = 500
-    REPLAY_MEMORY_SIZE = int(5e5)
-    RANDOM_SEEDS = [123, 321, 456, 654, 789, 987]
-else:
-    REWARD_DISCOUNT = 0.97
-    INITIAL_EXPLORE_STEPS = int(5e4)
-    TRAIN_STEPS = int(6e6)
-    TARGET_NET_SYNC_FREQUENCY = int(1e4)
-    EVALUATION_FREQUENCY = int(2e5)
-    EVALUATION_TRIALS = 5
-    EVALUATION_TRIALS_TEST = 100
-    REPLAY_MEMORY_SIZE = int(1e6)
-    RANDOM_SEEDS = [123, 321, 456]
-EVALUATION_STATES = int(2e2)
+
+# ----------------- 修改3：关闭图像处理专用的帧堆叠 -----------------
+# 极其重要：我们的状态是一维向量，不是连续的图片，所以必须设为 1，否则会报维度错误
+HISTORY_LENGTH = 1 
+FRAME_SKIP = 1 
+TRAIN_FREQUENCY = 1 # 每次交互都进行一次网络训练，加快收敛
+
+# ----------------- 修改4：加快训练与打印频率的超参数 -----------------
+REWARD_DISCOUNT = 0.95
+INITIAL_EXPLORE_STEPS = 2000       # 初始纯随机探索步数 (缩短到 2000 步)
+TRAIN_STEPS = 200000               # 总训练步数 (20万步对于小网络完全足够)
+TARGET_NET_SYNC_FREQUENCY = 1000   # 目标网络同步频率 (缩短，加速早期学习)
+EVALUATION_FREQUENCY = 2000        # 每 2000 步就验证并打印一次结果，让你能频繁看到进展
+EVALUATION_TRIALS = 5              # 每次验证跑 5 个回合取平均
+EVALUATION_TRIALS_TEST = 50        # 最终测试跑 50 个回合
+REPLAY_MEMORY_SIZE = 50000         # 经验回放池大小
+
+RANDOM_SEEDS = [123, 321, 456]     # 跑3个随机种子用于后期画平滑曲线
+EVALUATION_STATES = 200
 assert EVALUATION_FREQUENCY % TRAIN_FREQUENCY == 0
-LEARNING_RATE = 2e-4 
+
+# 全连接网络(MLP)比较容易训练，学习率可以稍微调大一点点
+LEARNING_RATE = 1e-3 
 
 
 def set_random_seed(rand_seed):
@@ -46,4 +44,3 @@ def set_random_seed(rand_seed):
     torch.manual_seed(rand_seed)
     print(f"<<<<<<<<<<<<<<<<<Finished setting random seed at {rand_seed}!>>>>>>>>>>>>>>>")
     return
-

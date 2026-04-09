@@ -90,4 +90,5 @@ class UAV_Emergency_Env(gym.Env):
         done = bool(self.current_step >= self.max_steps)
 
         # 返回符合 Gym 接口标准的数据
-        return next_state, reward, done, {}
+        # return next_state, reward, done, {}
+        return next_state, reward, done

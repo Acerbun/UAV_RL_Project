@@ -1,43 +1,25 @@
-# Standard DQN Model
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from settings import *
 
-class DQN_Atari(nn.Module):
-    def __init__(self, n_actions):
-        super().__init__()
-        self.conv_1 = nn.Conv2d(in_channels=HISTORY_LENGTH, out_channels=32, kernel_size=8, stride=4, padding=0)
-        self.conv_2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=0)
-        self.conv_3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=0)
-        self.n_conv_out_features = 3136
-        self.fc_1 = nn.Linear(self.n_conv_out_features, 512)
-        self.fc_2 = nn.Linear(512, n_actions)
-
-    def forward(self, x):
-        minibatch_size, n_in_channels, height, width = x.size()
-        assert n_in_channels == HISTORY_LENGTH and height == width == 84
-        x = F.relu(self.conv_1(x))
-        x = F.relu(self.conv_2(x))
-        x = F.relu(self.conv_3(x))
-        x = x.view(-1, self.n_conv_out_features)
-        x = F.relu(self.fc_1(x))
-        x = self.fc_2(x)
-        return x
-
-class DQN_Gym(nn.Module):
+class DQN(nn.Module):
     def __init__(self, n_actions, n_state_dims):
-        super().__init__()
-        self.fc_1 = nn.Linear(n_state_dims, 100)
-        self.fc_2 = nn.Linear(100, 100)
-        self.fc_3 = nn.Linear(100, 100)
-        self.fc_4 = nn.Linear(100, n_actions)
+        super(DQN, self).__init__()
+        # 针对无人机的一维状态向量（长度为 2K），我们使用三层全连接层 (MLP)
+        self.fc1 = nn.Linear(n_state_dims, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, n_actions)
 
     def forward(self, x):
-        x = F.relu(self.fc_1(x))
-        x = F.relu(self.fc_2(x))
-        x = F.relu(self.fc_3(x))
-        x = self.fc_4(x)
-        return x
-
+        # 确保输入是 PyTorch 张量
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
+            
+        # 如果输入是 1D 向量 (单步预测)，自动增加 batch 维度变成 2D
+        if len(x.shape) == 1:
+            x = x.unsqueeze(0)
+            
+        # 前向传播
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)

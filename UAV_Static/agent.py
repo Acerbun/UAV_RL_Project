@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from dqn import DQN_Atari, DQN_Gym
+# 【修改1：只导入我们刚才写的通用全连接网络 DQN】
+from dqn import DQN
 import os
 from settings import *
 
@@ -18,13 +19,15 @@ class Agent():
         self.agent_type = None
 
     def init_neuralNet(self, seed_ID):
-        if ENVIRONMENT_NAME in ["CartPole"]:
-            self._main_net = DQN_Gym(self.n_actions, self.n_state_dims).to(DEVICE)
-            self._target_net = DQN_Gym(self.n_actions, self.n_state_dims).to(DEVICE)            
-        else:
-            self._main_net = DQN_Atari(self.n_actions).to(DEVICE)
-            self._target_net = DQN_Atari(self.n_actions).to(DEVICE)
-        self._model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Models/{}/{}_{}_seed_{}.pt".format(ENVIRONMENT_NAME, self.agent_type, ENVIRONMENT_NAME, seed_ID))
+        # 【修改2：删掉所有 if-else，直接使用一维向量的 DQN】
+        self._main_net = DQN(self.n_actions, self.n_state_dims).to(DEVICE)
+        self._target_net = DQN(self.n_actions, self.n_state_dims).to(DEVICE)
+        
+        # 确保保存模型的文件夹存在
+        model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"Models/{ENVIRONMENT_NAME}")
+        os.makedirs(model_dir, exist_ok=True)
+        
+        self._model_path = os.path.join(model_dir, f"{self.agent_type}_{ENVIRONMENT_NAME}_seed_{seed_ID}.pt")
         self.optimizer = optim.Adam(self._main_net.parameters(), lr=LEARNING_RATE)
         self._target_net.eval()
         if os.path.exists(self._model_path):
