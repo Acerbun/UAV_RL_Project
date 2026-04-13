@@ -1,4 +1,4 @@
 __pycache__/
-Models/
-Models_01/
+Models*/
+UAV*
 *.pkl

@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 class UAV_Emergency_Env(gym.Env):
-    def __init__(self, num_users=5):
+    def __init__(self, num_users=10):
         super(UAV_Emergency_Env, self).__init__()
         # 1. 核心仿真参数
         self.K = num_users
